@@ -6,12 +6,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/Yandex-Practicum/final/pkg/api"
 	"github.com/Yandex-Practicum/final/settings"
 )
 
 func Handle(logger *log.Logger) *http.Server {
-	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir(settings.ServerSettings.WebDir)))
+	mux := api.Init()
 
 	Port := os.Getenv("TODO_PORT")
 	if Port == "" {

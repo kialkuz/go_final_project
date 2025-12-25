@@ -8,9 +8,10 @@ import (
 )
 
 type Settings struct {
-	WebDir      string `yaml:"web_dir"`
-	DefaultPort string `yaml:"default_port"`
-	DbFile      string `yaml:"db_file"`
+	WebDir          string `yaml:"web_dir"`
+	DefaultPort     string `yaml:"default_port"`
+	DbFile          string `yaml:"db_file"`
+	MaxIntervalDays int    `yaml:"max_interval_days"`
 }
 
 var ServerSettings Settings
