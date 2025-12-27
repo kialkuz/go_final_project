@@ -1,36 +1,69 @@
 package api
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
-	"time"
+	"strconv"
 
+	"github.com/Yandex-Practicum/final/pkg/db"
+	"github.com/Yandex-Practicum/final/pkg/dto"
 	"github.com/Yandex-Practicum/final/settings"
 )
 
 func Init() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.Handle("GET /", http.FileServer(http.Dir(settings.ServerSettings.WebDir)))
-	mux.HandleFunc("GET /api/nextdate", func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query()
-
-		now, err := time.Parse("20060102", q.Get("now"))
-
-		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "error now date", http.StatusBadRequest)
+	mux.HandleFunc("GET /api/nextdate", nextDayHandler)
+	mux.HandleFunc("POST /api/task", addTaskHandler)
+	mux.HandleFunc("GET /api/tasks", tasksHandler)
+	mux.HandleFunc("GET /api/task", func(w http.ResponseWriter, r *http.Request) {
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			log.Println("Не передан ID " + id)
+			writeJson(w, dto.ErrorResponse{ErrorText: "Не передан ID"})
 			return
 		}
 
-		nextDate, err := NextDate(now, q.Get("date"), q.Get("repeat"))
+		numericId, err := strconv.Atoi(id)
 		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, "error get next date", http.StatusBadRequest)
+			log.Println("Передан некорректный ID " + id)
+			writeJson(w, dto.ErrorResponse{ErrorText: "Передан некорректный ID"})
 			return
 		}
 
-		w.Write([]byte(nextDate))
+		task, err := db.GetTask(numericId)
+		if err != nil {
+			log.Println(err.Error())
+			writeJson(w, dto.ErrorResponse{ErrorText: "Задача не найдена"})
+			return
+		}
+
+		writeJson(w, task)
 	})
+	mux.HandleFunc("PUT /api/task", editTaskHandler)
+	mux.HandleFunc("DELETE /api/task", deleteTaskHandler)
+	mux.HandleFunc("POST /api/task/done", doneTaskHandler)
 
 	return mux
+}
+
+func writeJson(w http.ResponseWriter, data any) {
+	resp, err := json.Marshal(data)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	_, ok := data.(dto.ErrorResponse)
+	if ok {
+		w.WriteHeader(http.StatusBadRequest)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+
+	w.Write(resp)
 }

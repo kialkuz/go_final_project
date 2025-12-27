@@ -20,10 +20,12 @@ func main() {
 	if dbFile == "" {
 		dbFile = settings.ServerSettings.DbFile
 	}
-	err := db.Init(DBPath(dbFile))
+
+	database, err := db.Init(DBPath(dbFile))
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+	defer database.Close()
 
 	server := server.Handle(log.Default())
 
