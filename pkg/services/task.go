@@ -54,7 +54,7 @@ func CheckTask(task *db.Task) (*db.Task, error) {
 			return nil, errors.New("дата представлена в формате, отличном от 20060102")
 		}
 
-		if isAfterNow(now, t) {
+		if isDateAfter(now, t) {
 			if len(task.Repeat) == 0 {
 				// если правила повторения нет, то берём сегодняшнее число
 				task.Date = now.Format("20060102")
@@ -74,10 +74,10 @@ func CheckTask(task *db.Task) (*db.Task, error) {
 	return task, nil
 }
 
-func NextDate(now time.Time, dstart string, repeat string) (string, error) {
+func NextDate(now time.Time, dstart, repeat string) (string, error) {
 	formatParts := strings.Split(repeat, " ")
 
-	err := checkDateRepeat(formatParts)
+	err := checkDateRepeat(now, formatParts)
 	if err != nil {
 		return "", err
 	}
@@ -90,7 +90,7 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 	return nextDate.Format(dateFormat), nil
 }
 
-func checkDateRepeat(formatParts []string) error {
+func checkDateRepeat(now time.Time, formatParts []string) error {
 	allowedIntervalTypes := []string{intervalTypeDays, intervalTypeWeekDays, intervalTypeMonthDays, intervalTypeYear}
 	if !slices.Contains(allowedIntervalTypes, formatParts[0]) {
 		return errors.New("недопустимый символ")
@@ -108,7 +108,7 @@ func checkDateRepeat(formatParts []string) error {
 	case intervalTypeWeekDays:
 		err = checkIntervalTypeWeekDays(formatParts)
 	case intervalTypeMonthDays:
-		err = checkIntervalTypMonthDays(formatParts)
+		err = checkIntervalTypeMonthDays(now, formatParts)
 	}
 
 	return err
@@ -158,34 +158,47 @@ func checkIntervalTypeWeekDays(formatParts []string) error {
 	return nil
 }
 
-func checkIntervalTypMonthDays(formatParts []string) error {
-	now := time.Now()
-
+func checkIntervalTypeMonthDays(now time.Time, formatParts []string) error {
 	monthDays := strings.Split(formatParts[1], ",")
-	lastMonthDay := getLastMonthDay(now.Year(), int(now.Month())+1)
+	lastMonthDay := getMonthLastDay(now.Year(), int(now.Month()))
+	hasMonthesList := len(formatParts) == 3
 
-	for monthDay := range monthDays {
-		if monthDay <= 0 || monthDay > lastMonthDay || monthDay != -1 || monthDay != -2 {
+	for _, monthDay := range monthDays {
+		monthDayNumber, err := strconv.Atoi(monthDay)
+		if err != nil {
+			return errors.New("неверный формат интервала")
+		}
+		if monthDayNumber < -2 || (!hasMonthesList && monthDayNumber > lastMonthDay) {
 			return errors.New("недопустимый день месяца")
 		}
 	}
 
-	if len(formatParts) == 3 {
+	if hasMonthesList {
 		monthes := strings.Split(formatParts[2], ",")
 		decemberNumber := int(time.December)
 
-		for month := range monthes {
-			if month <= 0 || month > decemberNumber {
+		for _, month := range monthes {
+			monthNumber, err := strconv.Atoi(month)
+			if err != nil {
+				return errors.New("неверный формат списка месяцев")
+			}
+
+			if monthNumber < 1 || monthNumber > decemberNumber {
 				return errors.New("недопустимый месяц")
+			}
+
+			lastMonthDay := getMonthLastDay(now.Year(), monthNumber)
+
+			for _, monthDay := range monthDays {
+				monthDayNumber, _ := strconv.Atoi(monthDay)
+				if monthDayNumber > lastMonthDay {
+					return errors.New("недопустимый день месяца")
+				}
 			}
 		}
 	}
 
 	return nil
-}
-
-func getLastMonthDay(year, month int) int {
-	return time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.UTC).Day()
 }
 
 func getNextDate(now time.Time, dstart string, formatParts []string) (time.Time, error) {
@@ -204,24 +217,216 @@ func getNextDate(now time.Time, dstart string, formatParts []string) (time.Time,
 		nextDate = getNextDateByInterval(now, date, 0, days)
 	case intervalTypeYear:
 		nextDate = getNextDateByInterval(now, date, 1, 0)
-		// case intervalTypeWeekDays:
-		// 	nextDate = checkIntervalTypeWeekDays(formatParts[1])
-		/*case intervalTypeMonthDays:
-		nextDate = checkIntervalTypMonthDays(formatParts)*/
+	case intervalTypeWeekDays:
+		nextDate = getNextDateByWeekDays(now, date, formatParts[1])
+	case intervalTypeMonthDays:
+		var monthes string
+		if len(formatParts) == 3 {
+			monthes = formatParts[2]
+		}
+
+		nextDate = getNextDateByMonthDays(now, date, formatParts[1], monthes)
 	}
 
 	return nextDate, nil
 }
 
+func getNextDateByWeekDays(now, date time.Time, days string) time.Time {
+	weekDays := strings.Split(days, ",")
+
+	var weekDaysNumbers []int
+
+	for _, weekDay := range weekDays {
+		monthDayNumber, _ := strconv.Atoi(weekDay)
+		weekDaysNumbers = append(weekDaysNumbers, monthDayNumber)
+	}
+
+	currentWeekdayNumber := int(now.Weekday())
+
+	var nextDate time.Time
+	nextDateFound := false
+
+	if currentWeekdayNumber == 0 {
+		nextDate = getNextDateByInterval(now, date, 0, weekDaysNumbers[0])
+		nextDateFound = true
+	}
+
+	if !nextDateFound {
+		nextDate, nextDateFound = getNextDateByWeekDaysList(now, date, currentWeekdayNumber, weekDaysNumbers)
+	}
+
+	if !nextDateFound {
+		nextDate = getNextDateByFirstListDay(weekDaysNumbers[0], now, date)
+	}
+
+	return nextDate
+}
+
+func getNextDateByWeekDaysList(now, date time.Time, currentWeekdayNumber int, weekDays []int) (time.Time, bool) {
+	var nextDate time.Time
+	nextDateFound := false
+
+	for _, day := range weekDays {
+		if day > currentWeekdayNumber {
+			nextDate = getNextDateByInterval(now, date, 0, day-currentWeekdayNumber)
+			nextDateFound = true
+		}
+	}
+
+	return nextDate, nextDateFound
+}
+
+func getNextDateByFirstListDay(firstListDay int, now, date time.Time) time.Time {
+	for {
+		date = date.AddDate(0, 0, 1)
+		if int(date.Weekday()) == firstListDay && isDateAfter(date, now) {
+			break
+		}
+	}
+
+	return date
+}
+
+func getNextDateByMonthDays(now, date time.Time, days, monthes string) time.Time {
+	monthDays := strings.Split(days, ",")
+
+	var monthDaysNumbers []int
+
+	for _, monthDay := range monthDays {
+		monthDayNumber, _ := strconv.Atoi(monthDay)
+		monthDaysNumbers = append(monthDaysNumbers, monthDayNumber)
+	}
+
+	monthDaysNumbers = sortMonthDaysNumbers(monthDaysNumbers)
+
+	if monthes == "" {
+		dateStart := getDateStartForEveryMonth(now, date)
+		nextDate, nextDateFound := getNextDateSelectedMonth(now, dateStart, monthDaysNumbers)
+		if !nextDateFound {
+			for {
+				nextMonthDate := dateStart.AddDate(0, 1, 0)
+				lastMonthDay := getMonthLastDay(nextMonthDate.Year(), int(nextMonthDate.Month()))
+
+				if lastMonthDay >= monthDaysNumbers[0] {
+					nextDate = getMonthDay(nextMonthDate.Year(), int(nextMonthDate.Month()), monthDaysNumbers[0])
+					break
+				}
+			}
+		}
+
+		return nextDate
+	} else {
+		var monthNumbers []int
+
+		monthList := strings.Split(monthes, ",")
+		for _, month := range monthList {
+			monthNumber, _ := strconv.Atoi(month)
+			monthNumbers = append(monthNumbers, monthNumber)
+		}
+
+		slices.Sort(monthNumbers)
+
+		dateStart := getDateStartForMonthesList(now, date, monthNumbers)
+		nextDate, _ := getNextDateSelectedMonth(now, dateStart, monthDaysNumbers)
+
+		return nextDate
+	}
+}
+
+func sortMonthDaysNumbers(monthDaysNumbers []int) []int {
+	var positiveNumbers []int
+	var negativeNumbers []int
+
+	for _, monthDaysNumber := range monthDaysNumbers {
+		if monthDaysNumber > 0 {
+			positiveNumbers = append(positiveNumbers, monthDaysNumber)
+		} else {
+			negativeNumbers = append(negativeNumbers, monthDaysNumber)
+		}
+	}
+
+	slices.Sort(positiveNumbers)
+	slices.Sort(negativeNumbers)
+
+	return append(positiveNumbers, negativeNumbers...)
+}
+
+func getDateStartForEveryMonth(now, dateStart time.Time) time.Time {
+	if isDateAfter(dateStart, now) {
+		return dateStart
+	}
+
+	return now
+}
+
+func getDateStartForMonthesList(now, dateStart time.Time, monthes []int) time.Time {
+	currentMonthNumber := int(now.Month())
+	dateStartMonthNumber := int(dateStart.Month())
+	isDateAfter := isDateAfter(dateStart, now)
+
+	for _, monthNumber := range monthes {
+		if currentMonthNumber == monthNumber && dateStartMonthNumber == monthNumber && isDateAfter {
+			return dateStart
+		} else if currentMonthNumber < monthNumber {
+			return getMonthDay(now.Year(), monthNumber, 1)
+		}
+	}
+
+	return getMonthDay(now.Year()+1, monthes[0], 1)
+}
+
+func getNextDateSelectedMonth(now, date time.Time, monthDaysNumbers []int) (time.Time, bool) {
+	nextDate := date
+
+	dateStartMonthDay := date.Day()
+	nextDateFound := false
+
+	lastMonthDay := getMonthLastDay(date.Year(), int(date.Month()))
+
+	for _, dayNumber := range monthDaysNumbers {
+		if lastMonthDay < dayNumber {
+			continue
+		}
+
+		if dateStartMonthDay < dayNumber {
+			nextDate = getNextDateByInterval(now, date, 0, dayNumber-dateStartMonthDay)
+			nextDateFound = true
+			break
+		} else if dayNumber == -2 || dayNumber == -1 {
+			prevMonthDay := lastMonthDay - 1
+
+			if dayNumber == -2 && dateStartMonthDay < prevMonthDay {
+				nextDate = getMonthDay(date.Year(), int(date.Month()), prevMonthDay)
+				nextDateFound = true
+				break
+			} else if dayNumber == -1 && dateStartMonthDay < lastMonthDay {
+				nextDate = getMonthDay(date.Year(), int(date.Month()), lastMonthDay)
+				nextDateFound = true
+				break
+			}
+		}
+	}
+
+	return nextDate, nextDateFound
+}
+
+func getMonthLastDay(year, month int) int {
+	return getMonthDay(year, month+1, 0).Day()
+}
+
+func getMonthDay(year, month, day int) time.Time {
+	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+}
+
 func getNextDateByInterval(now, date time.Time, year, days int) time.Time {
 	for {
 		date = date.AddDate(year, 0, days)
-		if isAfterNow(date, now) {
+		if isDateAfter(date, now) {
 			return date
 		}
 	}
 }
 
-func isAfterNow(date, now time.Time) bool {
-	return date.Format(dateFormat) > now.Format(dateFormat)
+func isDateAfter(firstDate, secondDate time.Time) bool {
+	return firstDate.Format(dateFormat) > secondDate.Format(dateFormat)
 }
