@@ -1,13 +1,14 @@
 package api
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 
-	"github.com/Yandex-Practicum/final/pkg/db"
 	"github.com/Yandex-Practicum/final/pkg/dto"
-	"github.com/Yandex-Practicum/final/pkg/services"
+	"github.com/Yandex-Practicum/final/pkg/infrastructure/repository"
+	taskService "github.com/Yandex-Practicum/final/pkg/services/task"
 )
 
 type AddedTask struct {
@@ -15,20 +16,28 @@ type AddedTask struct {
 }
 
 func addTaskHandler(w http.ResponseWriter, r *http.Request) {
-	task, err := services.GetTaskBody(r)
+	task, err := taskService.GetTaskBody(r)
 	if err != nil {
 		log.Println(err.Error())
 		writeJson(w, dto.ErrorResponse{ErrorText: err.Error()})
 	}
 
-	task, err = services.CheckTask(task)
+	err = taskService.CheckTask(task)
 	if err != nil {
 		log.Println(err.Error())
 		writeJson(w, dto.ErrorResponse{ErrorText: err.Error()})
 		return
 	}
 
-	id, err := db.AddTask(task)
+	task.Date, err = taskService.GetDateByRules(task)
+	if err != nil {
+		log.Println(err.Error())
+		writeJson(w, dto.ErrorResponse{ErrorText: err.Error()})
+		return
+	}
+	fmt.Println(task.Date)
+
+	id, err := repository.AddTask(task)
 
 	if err != nil {
 		log.Println(err.Error())

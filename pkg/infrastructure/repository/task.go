@@ -1,23 +1,18 @@
-package db
+package repository
 
 import (
 	"database/sql"
 	"fmt"
+
+	"github.com/Yandex-Practicum/final/pkg/bootstrap"
+	"github.com/Yandex-Practicum/final/pkg/dto"
 )
 
-type Task struct {
-	ID      string `json:"id"`
-	Date    string `json:"date"`
-	Title   string `json:"title"`
-	Comment string `json:"comment"`
-	Repeat  string `json:"repeat"`
-}
-
-func AddTask(task *Task) (int64, error) {
+func AddTask(task *dto.Task) (int64, error) {
 	var id int64
 	query := `INSERT INTO scheduler (date, title, comment, repeat)
 		VALUES (:date, :title, :comment, :repeat)`
-	res, err := db.Exec(query,
+	res, err := bootstrap.Db.Exec(query,
 		sql.Named("date", task.Date),
 		sql.Named("title", task.Title),
 		sql.Named("comment", task.Comment),
@@ -29,8 +24,8 @@ func AddTask(task *Task) (int64, error) {
 	return id, err
 }
 
-func Tasks(limit int) ([]*Task, error) {
-	rows, err := db.Query("SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date DESC LIMIT :limit",
+func Tasks(limit int) ([]*dto.Task, error) {
+	rows, err := bootstrap.Db.Query("SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date DESC LIMIT :limit",
 		sql.Named("limit", limit),
 	)
 	if err != nil {
@@ -38,11 +33,11 @@ func Tasks(limit int) ([]*Task, error) {
 	}
 	defer rows.Close()
 
-	tasks := make([]*Task, 0)
+	tasks := make([]*dto.Task, 0)
 
 	for rows.Next() {
 
-		task := Task{}
+		task := dto.Task{}
 
 		err := rows.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 		if err != nil {
@@ -59,9 +54,9 @@ func Tasks(limit int) ([]*Task, error) {
 	return tasks, nil
 }
 
-func GetTask(id int) (*Task, error) {
-	task := Task{}
-	err := db.QueryRow("SELECT id, date, title, comment, repeat FROM scheduler WHERE id = :id",
+func GetTask(id int) (*dto.Task, error) {
+	task := dto.Task{}
+	err := bootstrap.Db.QueryRow("SELECT id, date, title, comment, repeat FROM scheduler WHERE id = :id",
 		sql.Named("id", id),
 	).Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 	if err != nil {
@@ -71,9 +66,9 @@ func GetTask(id int) (*Task, error) {
 	return &task, nil
 }
 
-func UpdateTask(task *Task) error {
+func UpdateTask(task *dto.Task) error {
 	query := `UPDATE scheduler SET date = :date, title = :title, comment = :comment, repeat = :repeat WHERE id = :id`
-	res, err := db.Exec(query,
+	res, err := bootstrap.Db.Exec(query,
 		sql.Named("date", task.Date),
 		sql.Named("title", task.Title),
 		sql.Named("comment", task.Comment),
@@ -95,7 +90,7 @@ func UpdateTask(task *Task) error {
 }
 
 func DeleteTask(id int) error {
-	_, err := db.Exec("DELETE FROM scheduler WHERE id = :id", sql.Named("id", id))
+	_, err := bootstrap.Db.Exec("DELETE FROM scheduler WHERE id = :id", sql.Named("id", id))
 	if err != nil {
 		return err
 	}

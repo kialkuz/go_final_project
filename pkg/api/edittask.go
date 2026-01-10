@@ -4,9 +4,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Yandex-Practicum/final/pkg/db"
 	"github.com/Yandex-Practicum/final/pkg/dto"
-	"github.com/Yandex-Practicum/final/pkg/services"
+	"github.com/Yandex-Practicum/final/pkg/infrastructure/repository"
+	taskService "github.com/Yandex-Practicum/final/pkg/services/task"
 )
 
 type EditTask struct {
@@ -14,21 +14,28 @@ type EditTask struct {
 }
 
 func editTaskHandler(w http.ResponseWriter, r *http.Request) {
-	task, err := services.GetTaskBody(r)
+	task, err := taskService.GetTaskBody(r)
 	if err != nil {
 		log.Println(err.Error())
 		writeJson(w, dto.ErrorResponse{ErrorText: err.Error()})
 		return
 	}
 
-	task, err = services.CheckTask(task)
+	err = taskService.CheckTask(task)
 	if err != nil {
 		log.Println(err.Error())
 		writeJson(w, dto.ErrorResponse{ErrorText: err.Error()})
 		return
 	}
 
-	err = db.UpdateTask(task)
+	task.Date, err = taskService.GetDateByRules(task)
+	if err != nil {
+		log.Println(err.Error())
+		writeJson(w, dto.ErrorResponse{ErrorText: err.Error()})
+		return
+	}
+
+	err = repository.UpdateTask(task)
 	if err != nil {
 		log.Println(err.Error())
 		writeJson(w, dto.ErrorResponse{ErrorText: "ошибка редактирования задачи"})

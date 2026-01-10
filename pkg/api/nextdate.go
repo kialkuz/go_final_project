@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Yandex-Practicum/final/pkg/dto"
-	"github.com/Yandex-Practicum/final/pkg/services"
+	"github.com/Yandex-Practicum/final/pkg/services/task/nextdate"
 )
 
 func nextDayHandler(w http.ResponseWriter, r *http.Request) {
@@ -20,7 +20,7 @@ func nextDayHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nextDate, err := services.NextDate(now, q.Get("date"), q.Get("repeat"))
+	nextDate, err := nextdate.NextDate(now, q.Get("date"), q.Get("repeat"))
 	if err != nil {
 		log.Println(err.Error())
 		writeJson(w, dto.ErrorResponse{ErrorText: err.Error()})

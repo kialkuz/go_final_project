@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Yandex-Practicum/final/pkg/db"
 	"github.com/Yandex-Practicum/final/pkg/dto"
-	"github.com/Yandex-Practicum/final/pkg/services"
+	"github.com/Yandex-Practicum/final/pkg/infrastructure/repository"
+	"github.com/Yandex-Practicum/final/pkg/services/task/nextdate"
 )
 
 func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +27,7 @@ func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := db.GetTask(numericId)
+	task, err := repository.GetTask(numericId)
 	if err != nil {
 		log.Println(err.Error())
 		writeJson(w, dto.ErrorResponse{ErrorText: "Задача не найдена"})
@@ -35,14 +35,14 @@ func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if task.Repeat == "" {
-		err = db.DeleteTask(numericId)
+		err = repository.DeleteTask(numericId)
 		if err != nil {
 			log.Println(err.Error())
 			writeJson(w, dto.ErrorResponse{ErrorText: "Ошибка удаления задачи"})
 			return
 		}
 	} else {
-		nextDate, err := services.NextDate(time.Now(), task.Date, task.Repeat)
+		nextDate, err := nextdate.NextDate(time.Now(), task.Date, task.Repeat)
 		if err != nil {
 			log.Println(err.Error())
 			writeJson(w, dto.ErrorResponse{ErrorText: "Ошибка отметки задачи выполненной"})
@@ -50,7 +50,7 @@ func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		task.Date = nextDate
-		err = db.UpdateTask(task)
+		err = repository.UpdateTask(task)
 		if err != nil {
 			log.Println(err.Error())
 			writeJson(w, dto.ErrorResponse{ErrorText: "Ошибка отметки задачи выполненной"})

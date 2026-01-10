@@ -3,20 +3,21 @@ package server
 import (
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/Yandex-Practicum/final/pkg/api"
-	"github.com/Yandex-Practicum/final/settings"
+	"github.com/Yandex-Practicum/final/pkg/infrastructure/env"
+)
+
+const (
+	portEnv     = "PORT"
+	defaultPort = "7540"
 )
 
 func Handle(logger *log.Logger) *http.Server {
 	mux := api.Init()
 
-	Port := os.Getenv("TODO_PORT")
-	if Port == "" {
-		Port = settings.ServerSettings.DefaultPort
-	}
+	Port := env.Lookup(portEnv, defaultPort)
 
 	return &http.Server{
 		Addr:         ":" + Port,

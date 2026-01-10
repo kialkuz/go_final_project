@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Yandex-Practicum/final/pkg/db"
 	"github.com/Yandex-Practicum/final/pkg/dto"
+	"github.com/Yandex-Practicum/final/pkg/infrastructure/repository"
 )
 
 func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
@@ -25,14 +25,14 @@ func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.GetTask(numericId)
+	_, err = repository.GetTask(numericId)
 	if err != nil {
 		log.Println(err.Error())
 		writeJson(w, dto.ErrorResponse{ErrorText: "Задача не найдена"})
 		return
 	}
 
-	err = db.DeleteTask(numericId)
+	err = repository.DeleteTask(numericId)
 	if err != nil {
 		log.Println(err.Error())
 		writeJson(w, dto.ErrorResponse{ErrorText: "Ошибка удаления задачи"})

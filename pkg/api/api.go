@@ -6,14 +6,19 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/Yandex-Practicum/final/pkg/db"
 	"github.com/Yandex-Practicum/final/pkg/dto"
-	"github.com/Yandex-Practicum/final/settings"
+	"github.com/Yandex-Practicum/final/pkg/infrastructure/env"
+	"github.com/Yandex-Practicum/final/pkg/infrastructure/repository"
+)
+
+const (
+	webDirPathEnv     = "WEB_DIR_PATH"
+	defaultWebDirPath = "7540"
 )
 
 func Init() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.Handle("GET /", http.FileServer(http.Dir(settings.ServerSettings.WebDir)))
+	mux.Handle("GET /", http.FileServer(http.Dir(env.Lookup(webDirPathEnv, defaultWebDirPath))))
 	mux.HandleFunc("GET /api/nextdate", nextDayHandler)
 	mux.HandleFunc("POST /api/task", addTaskHandler)
 	mux.HandleFunc("GET /api/tasks", tasksHandler)
@@ -32,7 +37,7 @@ func Init() *http.ServeMux {
 			return
 		}
 
-		task, err := db.GetTask(numericId)
+		task, err := repository.GetTask(numericId)
 		if err != nil {
 			log.Println(err.Error())
 			writeJson(w, dto.ErrorResponse{ErrorText: "Задача не найдена"})
