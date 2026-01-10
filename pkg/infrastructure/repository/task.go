@@ -3,9 +3,11 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/Yandex-Practicum/final/pkg/bootstrap"
 	"github.com/Yandex-Practicum/final/pkg/dto"
+	dateService "github.com/Yandex-Practicum/final/pkg/services/date"
 )
 
 func AddTask(task *dto.Task) (int64, error) {
@@ -33,10 +35,47 @@ func Tasks(limit int) ([]*dto.Task, error) {
 	}
 	defer rows.Close()
 
+	return makeList(rows)
+}
+
+func SearchTasks(data string, limit int) ([]*dto.Task, error) {
+	var rows *sql.Rows
+
+	searchDate, err := time.Parse("02.01.2006", data)
+
+	if err != nil {
+		rows, err = bootstrap.Db.Query(`
+			SELECT id, date, title, comment, repeat
+			FROM scheduler
+			WHERE title LIKE concat('%', :search, '%')
+			OR comment LIKE concat('%', :search, '%')
+			ORDER BY date LIMIT :limit`,
+			sql.Named("search", data),
+			sql.Named("limit", limit),
+		)
+	} else {
+		rows, err = bootstrap.Db.Query(`
+			SELECT id, date, title, comment, repeat
+			FROM scheduler
+			WHERE date = :date LIMIT :limit`,
+			sql.Named("date", searchDate.Format(dateService.DateFormat)),
+			sql.Named("limit", limit),
+		)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	return makeList(rows)
+}
+
+func makeList(rows *sql.Rows) ([]*dto.Task, error) {
 	tasks := make([]*dto.Task, 0)
 
 	for rows.Next() {
-
 		task := dto.Task{}
 
 		err := rows.Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)

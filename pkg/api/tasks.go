@@ -13,7 +13,18 @@ type TasksResp struct {
 }
 
 func tasksHandler(w http.ResponseWriter, r *http.Request) {
-	tasks, err := repository.Tasks(50) // в параметре максимальное количество записей
+	var tasks []*dto.Task
+	var err error
+
+	q := r.URL.Query()
+
+	search := q.Get("search")
+	if search == "" {
+		tasks, err = repository.Tasks(50) // в параметре максимальное количество записей
+	} else {
+		tasks, err = repository.SearchTasks(search, 50)
+	}
+
 	if err != nil {
 		log.Println(err.Error())
 		writeJson(w, dto.ErrorResponse{ErrorText: "ошибка получения"})

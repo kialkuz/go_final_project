@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -35,7 +34,6 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 		writeJson(w, dto.ErrorResponse{ErrorText: err.Error()})
 		return
 	}
-	fmt.Println(task.Date)
 
 	id, err := repository.AddTask(task)
 
