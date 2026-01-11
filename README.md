@@ -26,3 +26,6 @@ MAX_INTERNAL_DAYS: 400
 Для запуска тестов использовать команду go test ./tests
 При запуске тестов используются параметры в файле tests/settings.go
 Параметры FullNextDate, Search можно включить. Реализован весь функционал.
+
+Аутентификация реализована. Для тестирования добавить в tests/settings.go
+значение: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.396KCDWMomWrMEImsF84AmFRjBEvSvnyLh3ZA_mB_Wg

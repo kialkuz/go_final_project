@@ -12,11 +12,6 @@ import (
 	"github.com/Yandex-Practicum/final/pkg/services/task/nextdate"
 )
 
-const (
-	maxIntervalDaysEnv     = "MAX_INTERNAL_DAYS"
-	defaultMaxIntervalDays = "400"
-)
-
 var task dto.Task
 
 func GetTaskBody(r *http.Request) (*dto.Task, error) {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Yandex-Practicum/final/pkg/dto"
 	"github.com/Yandex-Practicum/final/pkg/infrastructure/env"
+	"github.com/Yandex-Practicum/final/pkg/middleware"
 )
 
 const (
@@ -18,12 +19,13 @@ func Init() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.Handle("GET /", http.FileServer(http.Dir(env.Lookup(webDirPathEnv, defaultWebDirPath))))
 	mux.HandleFunc("GET /api/nextdate", nextDayHandler)
-	mux.HandleFunc("POST /api/task", addTaskHandler)
-	mux.HandleFunc("GET /api/tasks", tasksHandler)
-	mux.HandleFunc("GET /api/task", taskHandler)
-	mux.HandleFunc("PUT /api/task", editTaskHandler)
+	mux.HandleFunc("GET /api/task", middleware.Auth(taskHandler))
+	mux.HandleFunc("POST /api/task", middleware.Auth(addTaskHandler))
+	mux.HandleFunc("PUT /api/task", middleware.Auth(editTaskHandler))
+	mux.HandleFunc("GET /api/tasks", middleware.Auth(tasksHandler))
 	mux.HandleFunc("DELETE /api/task", deleteTaskHandler)
-	mux.HandleFunc("POST /api/task/done", doneTaskHandler)
+	mux.HandleFunc("POST /api/task/done", middleware.Auth(doneTaskHandler))
+	mux.HandleFunc("POST /api/signin", signinHandler)
 
 	return mux
 }
