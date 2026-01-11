@@ -46,20 +46,7 @@ func GetNextDateByWeekDays(now, date time.Time, days string) time.Time {
 		weekDaysNumbers = append(weekDaysNumbers, monthDayNumber)
 	}
 
-	currentWeekdayNumber := int(now.Weekday())
-
-	var nextDate time.Time
-	nextDateFound := false
-
-	if currentWeekdayNumber == 0 {
-		nextDate = getNextDateByInterval(now, date, 0, weekDaysNumbers[0])
-		nextDateFound = true
-	}
-
-	if !nextDateFound {
-		nextDate, nextDateFound = getNextDateByWeekDaysList(now, date, currentWeekdayNumber, weekDaysNumbers)
-	}
-
+	nextDate, nextDateFound := getNextDateByWeekDaysList(now, date, int(now.Weekday()), weekDaysNumbers)
 	if !nextDateFound {
 		nextDate = getNextDateByFirstListDay(weekDaysNumbers[0], now, date)
 	}
@@ -67,6 +54,7 @@ func GetNextDateByWeekDays(now, date time.Time, days string) time.Time {
 	return nextDate
 }
 
+// поиск даты по алгоритму, если текущий день недели меньше какого-либо дня из правила повторения
 func getNextDateByWeekDaysList(now, date time.Time, currentWeekdayNumber int, weekDays []int) (time.Time, bool) {
 	var nextDate time.Time
 	nextDateFound := false
@@ -81,13 +69,13 @@ func getNextDateByWeekDaysList(now, date time.Time, currentWeekdayNumber int, we
 	return nextDate, nextDateFound
 }
 
+// если текущий день недели больше всех дней из правил повторения, то ищем дату с первым днем
+// недели из правила повторения
 func getNextDateByFirstListDay(firstListDay int, now, date time.Time) time.Time {
 	for {
 		date = date.AddDate(0, 0, 1)
 		if int(date.Weekday()) == firstListDay && dateService.IsDateAfter(date, now) {
-			break
+			return date
 		}
 	}
-
-	return date
 }

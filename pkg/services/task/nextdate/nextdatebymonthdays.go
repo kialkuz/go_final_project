@@ -66,15 +66,19 @@ func GetNextDateByMonthDays(now, date time.Time, days, monthes string) time.Time
 	monthDaysNumbers = sortMonthDaysNumbers(monthDaysNumbers)
 
 	if monthes == "" {
-		dateStart := getDateStartForEveryMonth(now, date)
-		nextDate, nextDateFound := getNextDateSelectedMonth(now, dateStart, monthDaysNumbers)
+		var nextDate time.Time
+		var nextDateFound bool
+		if dateService.IsDateAfter(date, now) {
+			nextDate, nextDateFound = getNextDateMonthOfDateStart(now, date, monthDaysNumbers)
+		}
+
+		// если месяц даты старта не включает нужную дату, то продолжаем поиск
 		if !nextDateFound {
 			for {
-				nextMonthDate := dateStart.AddDate(0, 1, 0)
-				lastMonthDay := getMonthLastDay(nextMonthDate.Year(), int(nextMonthDate.Month()))
+				date = date.AddDate(0, 0, 1)
 
-				if lastMonthDay >= monthDaysNumbers[0] {
-					nextDate = getMonthDay(nextMonthDate.Year(), int(nextMonthDate.Month()), monthDaysNumbers[0])
+				if dateService.IsDateAfter(date, now) && date.Day() == monthDaysNumbers[0] {
+					nextDate = getMonthDay(date.Year(), int(date.Month()), monthDaysNumbers[0])
 					break
 				}
 			}
@@ -93,12 +97,19 @@ func GetNextDateByMonthDays(now, date time.Time, days, monthes string) time.Time
 		slices.Sort(monthNumbers)
 
 		dateStart := getDateStartForMonthesList(now, date, monthNumbers)
-		nextDate, _ := getNextDateSelectedMonth(now, dateStart, monthDaysNumbers)
+		nextDate, nextDateFound := getNextDateMonthOfDateStart(now, dateStart, monthDaysNumbers)
+
+		if !nextDateFound {
+			nextDate = getMonthDay(dateStart.Year(), int(dateStart.Month()), monthDaysNumbers[0])
+		}
 
 		return nextDate
 	}
 }
 
+// сортировка дней из правила повторения
+// сначала по возрастанию положительные числа
+// затем отрицательные, т.к. -2, -1 - последние дни месяца
 func sortMonthDaysNumbers(monthDaysNumbers []int) []int {
 	var positiveNumbers []int
 	var negativeNumbers []int
@@ -117,14 +128,7 @@ func sortMonthDaysNumbers(monthDaysNumbers []int) []int {
 	return append(positiveNumbers, negativeNumbers...)
 }
 
-func getDateStartForEveryMonth(now, dateStart time.Time) time.Time {
-	if dateService.IsDateAfter(dateStart, now) {
-		return dateStart
-	}
-
-	return now
-}
-
+// получение даты начала поиска при передаче списка месяцев
 func getDateStartForMonthesList(now, dateStart time.Time, monthes []int) time.Time {
 	currentMonthNumber := int(now.Month())
 	dateStartMonthNumber := int(dateStart.Month())
@@ -141,8 +145,9 @@ func getDateStartForMonthesList(now, dateStart time.Time, monthes []int) time.Ti
 	return getMonthDay(now.Year()+1, monthes[0], 1)
 }
 
-func getNextDateSelectedMonth(now, date time.Time, monthDaysNumbers []int) (time.Time, bool) {
-	nextDate := date
+// получение следующей даты в рамках месяца даты старта
+func getNextDateMonthOfDateStart(now, date time.Time, monthDaysNumbers []int) (time.Time, bool) {
+	var nextDate time.Time
 
 	dateStartMonthDay := date.Day()
 	nextDateFound := false
