@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
-	"github.com/Yandex-Practicum/final/pkg/bootstrap"
-	"github.com/Yandex-Practicum/final/pkg/server"
+	"github.com/Yandex-Practicum/final/internal/bootstrap"
+	"github.com/Yandex-Practicum/final/internal/server"
 )
 
 func main() {
@@ -17,6 +17,5 @@ func main() {
 
 	if err != nil {
 		log.Fatal(err.Error())
-		panic(err)
 	}
 }
