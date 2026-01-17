@@ -1,0 +1,4 @@
+web_dir: web
+default_port: 7540
+db_file: "scheduler.db"
+max_interval_days: 400
